@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Калькулятор: аренда vs свой объект</title>
+<style>
+  :root { --bg:#0b1220; --card:#121a2b; --muted:#8aa0c6; --text:#e8eefc; --accent:#4ea1ff; --good:#1ec98a; --bad:#ff6b6b; }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial;background:var(--bg);color:var(--text)}
+  header{padding:24px 20px 8px;max-width:1200px;margin:auto}
+  header h1{margin:0 0 4px;font-weight:700;font-size:20px}
+  header p{margin:0;color:var(--muted)}
+  main{max-width:1200px;margin:10px auto 40px;display:grid;gap:16px;padding:0 20px;grid-template-columns:1.2fr 1fr}
+  .card{background:var(--card);border:1px solid #1b2540;border-radius:16px;padding:16px;box-shadow:0 0 0 1px #0d1425 inset}
+  .card h2,.card h3{margin:0 0 12px;font-size:16px}
+  .grid{display:grid;gap:10px}
+  .cols-2{grid-template-columns:1fr 1fr}
+  .cols-3{grid-template-columns:repeat(3,1fr)}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #233055;background:#0b1220;color:var(--text)}
+  input[type="number"]{appearance:textfield}
+  .row{display:grid;gap:10px;grid-template-columns:1.3fr 1fr}
+  .btns{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
+  button{padding:10px 14px;border:1px solid #29406d;background:#13213a;color:#cfe2ff;border-radius:12px;cursor:pointer}
+  button.primary{background:linear-gradient(180deg,#3b7bff,#2c64d6);border-color:#2e61ce;color:white}
+  .kpi{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}
+  .kpi .item{background:#0b1220;border:1px solid #1b2747;border-radius:12px;padding:12px}
+  .kpi .label{color:var(--muted);font-size:12px}
+  .kpi .value{font-weight:700;margin-top:4px}
+  .good{color:var(--good)} .bad{color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px;border-bottom:1px solid #1a2746;text-align:right}
+  th{color:var(--muted);font-weight:600}
+  td:first-child, th:first-child{text-align:left}
+  .note{font-size:12px;color:var(--muted);margin-top:8px}
+  details{margin-top:8px}
+  summary{cursor:pointer;color:#b6ccff}
+  @media (max-width:1024px){ main{grid-template-columns:1fr} .kpi{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Калькулятор: аренда vs собственный объект</h1>
+  <p>Для производственно-складских объектов (МО + соседние регионы). Рассчитывает аренду, платежи по кредиту, NPV/IRR и финальный вывод.</p>
+</header>
+
+<main>
+  <!-- Вводные -->
+  <section class="card">
+    <h2>Вводные</h2>
+    <div class="grid cols-3">
+      <div>
+        <label>Площадь, м²</label>
+        <input type="number" id="area" value="2000" min="1" />
+      </div>
+      <div>
+        <label>Горизонт сравнения, лет</label>
+        <input type="number" id="horizon" value="7" min="1" max="30" />
+      </div>
+      <div>
+        <label>Дисконт-ставка NPV, %/год</label>
+        <input type="number" id="discRate" value="16" step="0.1" />
+      </div>
+    </div>
+
+    <h3 style="margin-top:16px">Аренда</h3>
+    <div class="grid cols-3">
+      <div>
+        <label>Ставка аренды, ₽/м²/мес</label>
+        <input type="number" id="rentRate" value="650" step="1" />
+      </div>
+      <div>
+        <label>Рост аренды, %/год</label>
+        <input type="number" id="rentGrowth" value="7" step="0.1" />
+      </div>
+      <div>
+        <label>Вспом. инфлятор аренды (опц.), %</label>
+        <input type="number" id="rentInfl" value="0" step="0.1" />
+      </div>
+    </div>
+
+    <h3 style="margin-top:16px">CAPEX</h3>
+    <div class="grid cols-3">
+      <div><label>Проектирование, ₽/м²</label><input type="number" id="designRate" value="1800" /></div>
+      <div><label>Строительство, ₽/м²</label><input type="number" id="buildRate" value="40000" /></div>
+      <div><label>Земля, ₽</label><input type="number" id="landCost" value="6000000" /></div>
+      <div><label>Анализ/аудит (фикс), ₽</label><input type="number" id="audit" value="150000" /></div>
+      <div><label>Поиск земли (фикс), ₽</label><input type="number" id="landSearch" value="250000" /></div>
+      <div><label>Юрпроверка (фикс), ₽</label><input type="number" id="legal" value="100000" /></div>
+      <div><label>Разрешения (фикс), ₽</label><input type="number" id="permits" value="400000" /></div>
+      <div><label>Ввод в эксплуатацию (фикс), ₽</label><input type="number" id="commissioning" value="200000" /></div>
+      <div><label>Технадзор, мес</label><input type="number" id="supervisionMonths" value="6" /></div>
+      <div><label>Технадзор, ₽/мес</label><input type="number" id="supervisionRate" value="200000" /></div>
+    </div>
+
+    <h3 style="margin-top:16px">Кредит / OPEX</h3>
+    <div class="grid cols-3">
+      <div><label>Годовая ставка кредита, %</label><input type="number" id="loanRate" value="14" step="0.1" /></div>
+      <div><label>Срок кредита, лет</label><input type="number" id="loanYears" value="7" /></div>
+      <div><label>Доля собственных средств, %</label><input type="number" id="equityPct" value="15" step="0.1" /></div>
+      <div><label>OPEX собственного объекта, ₽/год</label><input type="number" id="opex" value="1500000" /></div>
+      <div><label>Стоимость актива на горизонте, ₽</label><input type="number" id="terminalValue" value="150000000" /></div>
+    </div>
+
+    <div class="btns">
+      <button class="primary" id="calcBtn">Рассчитать</button>
+      <button id="resetBtn">Сбросить к дефолту</button>
+    </div>
+    <p class="note">Формулы: PMT/IPMT/PPMT-аннуитет, NPV с учетом t=0 отдельно, IRR — итерационно (если существует).</p>
+  </section>
+
+  <!-- Результаты -->
+  <section class="card">
+    <h2>Итоги и вывод</h2>
+    <div class="kpi">
+      <div class="item"><div class="label">Первоначальные вложения (Equity)</div><div class="value" id="kpiEquity">—</div></div>
+      <div class="item"><div class="label">Год 1: аренда / свой (годовые)</div><div class="value" id="kpiYear1">—</div></div>
+      <div class="item"><div class="label">NPV аренды</div><div class="value" id="kpiNPVRent">—</div></div>
+      <div class="item"><div class="label">NPV своего</div><div class="value" id="kpiNPVOwn">—</div></div>
+      <div class="item"><div class="label">Разница NPV (Свой − Аренда)</div><div class="value" id="kpiDelta">—</div></div>
+      <div class="item"><div class="label">Вывод</div><div class="value" id="kpiVerdict">—</div></div>
+    </div>
+
+    <details>
+      <summary>Показать таблицы (аренда, денежные потоки)</summary>
+      <h3 style="margin-top:14px">Аренда по годам</h3>
+      <div style="overflow:auto">
+        <table id="rentTable">
+          <thead><tr><th>Год</th><th>₽/м²/мес</th><th>₽/м²/год</th><th>Годовая аренда ₽</th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr><th colspan="3" style="text-align:right">Итого за горизонт</th><th id="rentTotal">—</th></tr></tfoot>
+        </table>
+      </div>
+      <h3 style="margin-top:14px">Денежные потоки (годовые)</h3>
+      <div style="overflow:auto">
+        <table id="cfTable">
+          <thead><tr><th>Год</th><th>CF Аренда (−)</th><th>CF Свой (−/+)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+
+    <div class="note">
+      Примечание: IRR для «аренды» обычно не существует (в потоке нет положительных притоков) — это нормально.
+    </div>
+  </section>
+
+  <!-- Help -->
+  <section class="card" style="grid-column:1/-1">
+    <h2>Как пользоваться (онлайн)</h2>
+    <ol>
+      <li>Заполните блок <b>Вводные</b>: площадь, горизонт, дисконт.</li>
+      <li>Внесите ставки в разделах <b>Аренда</b>, <b>CAPEX</b>, <b>Кредит / OPEX</b>.</li>
+      <li>Нажмите <b>«Рассчитать»</b>. В правом блоке увидите Equity, NPV двух сценариев, разницу и вывод.</li>
+      <li>Раскройте «Показать таблицы», чтобы проверить помесячные ставки аренды и годовые потоки.</li>
+      <li>Чтобы поделиться: отправьте файл <code>index.html</code> коллеге или разместите на GitHub Pages / в любой статический хостинг.</li>
+    </ol>
+  </section>
+</main>
+
+<script>
+  // --------- УТИЛИТЫ ---------
+  const fmt = (n) => isFinite(n) ? n.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + " ₽" : "—";
+  const fmt0 = (n) => isFinite(n) ? n.toLocaleString('ru-RU', { maximumFractionDigits: 0 }) : "—";
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  // PMT (аннуитет), совместим с Excel-подходом (возвращаем положительную величину платежа)
+  function pmt(rate, nper, pv, fv = 0, type = 0) {
+    if (rate === 0) return Math.abs((pv + fv) / nper);
+    const r1 = Math.pow(1 + rate, nper);
+    const p = (pv * r1 + fv) * rate / ( (1 + rate * type) * (r1 - 1) );
+    return Math.abs(p);
+  }
+
+  // NPV: cash[0] — t=0; rate — годовой
+  function npv(rate, cash) {
+    let s = 0;
+    for (let t = 0; t < cash.length; t++) s += cash[t] / Math.pow(1 + rate, t);
+    return s;
+  }
+
+  // IRR (поиск корня NPV), секущая с запасом; может вернуть null
+  function irr(cash, guess = 0.1) {
+    const npvFunc = r => npv(r, cash);
+    let x0 = -0.9, x1 = 1.0; // от -90% до 100%
+    let f0 = npvFunc(x0), f1 = npvFunc(x1);
+    if (Math.sign(f0) === Math.sign(f1)) return null;
+    for (let i = 0; i < 100; i++) {
+      const x2 = x1 - f1 * (x1 - x0) / (f1 - f0);
+      if (!isFinite(x2)) return null;
+      const f2 = npvFunc(x2);
+      if (Math.abs(f2) < 1e-6) return x2;
+      x0 = x1; f0 = f1; x1 = x2; f1 = f2;
+    }
+    return null;
+  }
+
+  // --------- ОСНОВНОЙ РАСЧЕТ ---------
+  function calculate() {
+    // Вводные
+    const area = +document.getElementById('area').value;
+    const horizon = clamp(+document.getElementById('horizon').value, 1, 30);
+    const discRate = +document.getElementById('discRate').value / 100;
+
+    // Аренда
+    const rentRate = +document.getElementById('rentRate').value;
+    const rentGrowth = +document.getElementById('rentGrowth').value / 100;
+    const rentInfl = +document.getElementById('rentInfl').value / 100;
+
+    // CAPEX
+    const designRate = +document.getElementById('designRate').value;
+    const buildRate = +document.getElementById('buildRate').value;
+    const landCost = +document.getElementById('landCost').value;
+    const audit = +document.getElementById('audit').value;
+    const landSearch = +document.getElementById('landSearch').value;
+    const legal = +document.getElementById('legal').value;
+    const permits = +document.getElementById('permits').value;
+    const commissioning = +document.getElementById('commissioning').value;
+    const supervisionMonths = +document.getElementById('supervisionMonths').value;
+    const supervisionRate = +document.getElementById('supervisionRate').value;
+
+    // Кредит/OPEX
+    const loanRate = +document.getElementById('loanRate').value / 100;
+    const loanYears = +document.getElementById('loanYears').value;
+    const equityPct = +document.getElementById('equityPct').value / 100;
+    const opex = +document.getElementById('opex').value;
+    const terminalValue = +document.getElementById('terminalValue').value;
+
+    // Проверка
+    if (area <= 0 || horizon <= 0) { alert('Проверьте площадь и горизонт.'); return; }
+
+    // ---- Аренда по годам ----
+    const rentRows = [];
+    let rentTotal = 0;
+    for (let y = 1; y <= horizon; y++) {
+      const rateM = rentRate * Math.pow(1 + rentGrowth, y - 1) * (1 + rentInfl);
+      const rateY = rateM * 12;
+      const rentYear = rateY * area;
+      rentRows.push({ y, rateM, rateY, rentYear });
+      rentTotal += rentYear;
+    }
+
+    // ---- CAPEX ----
+    const capexDesign = designRate * area;
+    const capexBuild = buildRate * area;
+    const capexSupervision = supervisionMonths * supervisionRate;
+    const capexNoLand = audit + landSearch + legal + capexDesign + permits + capexBuild + capexSupervision + commissioning;
+    const capexWithLand = capexNoLand + landCost;
+
+    // ---- Кредит ----
+    const equity = capexWithLand * equityPct;
+    const debt = capexWithLand - equity;
+    const mRate = loanRate / 12;
+    const nper = Math.round(loanYears * 12);
+    const pmtMonth = pmt(mRate, nper, debt, 0, 0);
+    const payYear = pmtMonth * 12;
+    const ownYearCost = payYear + opex;
+
+    // ---- Денежные потоки (годовые) ----
+    const cfRent = [0];    // t=0
+    const cfOwn  = [-equity]; // t=0
+    for (let y = 1; y <= horizon; y++) {
+      cfRent.push(-rentRows[y - 1].rentYear);
+      let cfOwnY = -ownYearCost;
+      if (y === horizon) cfOwnY += terminalValue;
+      cfOwn.push(cfOwnY);
+    }
+
+    const npvRent = npv(discRate, cfRent);
+    const npvOwn  = npv(discRate, cfOwn);
+    const irrOwn  = irr(cfOwn);
+
+    // ---- UI: KPI ----
+    document.getElementById('kpiEquity').textContent = fmt(equity);
+    document.getElementById('kpiYear1').textContent  =
+      fmt(rentRows[0].rentYear) + " / " + fmt(ownYearCost);
+    document.getElementById('kpiNPVRent').textContent = fmt(Math.round(npvRent));
+    document.getElementById('kpiNPVOwn').textContent  = fmt(Math.round(npvOwn));
+
+    const delta = npvOwn - npvRent;
+    const elDelta = document.getElementById('kpiDelta');
+    elDelta.textContent = (delta>=0?"+":"") + fmt0(Math.round(delta)) + " ₽";
+    elDelta.className = "value " + (delta >= 0 ? "good" : "bad");
+
+    const verdict = delta >= 0 ? "СВОЙ ОБЪЕКТ выгоднее по NPV"
+                  : "АРЕНДА выгоднее по NPV";
+    document.getElementById('kpiVerdict').textContent = verdict + (irrOwn!=null?` • IRR своего: ${(irrOwn*100).toFixed(2)}%`:"");
+
+    // ---- Таблица аренды ----
+    const rentTB = document.querySelector('#rentTable tbody');
+    rentTB.innerHTML = "";
+    rentRows.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.y}</td><td>${fmt0(r.rateM)}</td><td>${fmt0(r.rateY)}</td><td>${fmt0(r.rentYear)}</td>`;
+      rentTB.appendChild(tr);
+    });
+    document.getElementById('rentTotal').textContent = fmt(Math.round(rentTotal));
+
+    // ---- Таблица денежных потоков ----
+    const cfTB = document.querySelector('#cfTable tbody');
+    cfTB.innerHTML = "";
+    // t=0
+    const tr0 = document.createElement('tr');
+    tr0.innerHTML = `<td>0</td><td>${fmt0(0)}</td><td>${fmt0(-equity)}</td>`;
+    cfTB.appendChild(tr0);
+    // 1..horizon
+    for (let y = 1; y <= horizon; y++) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${y}</td><td>${fmt0(cfRent[y])}</td><td>${fmt0(cfOwn[y])}</td>`;
+      cfTB.appendChild(tr);
+    }
+  }
+
+  function resetDefaults(){
+    ['area','horizon','discRate','rentRate','rentGrowth','rentInfl','designRate','buildRate','landCost','audit','landSearch','legal','permits','commissioning','supervisionMonths','supervisionRate','loanRate','loanYears','equityPct','opex','terminalValue']
+      .forEach(id=>{
+        const el = document.getElementById(id);
+        el.value = el.defaultValue;
+      });
+    calculate();
+  }
+
+  document.getElementById('calcBtn').addEventListener('click', calculate);
+  document.getElementById('resetBtn').addEventListener('click', resetDefaults);
+  // авторасчет при загрузке
+  window.addEventListener('DOMContentLoaded', calculate);
+</script>
+</body>
+</html>
