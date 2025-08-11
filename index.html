@@ -42,7 +42,7 @@
 <body>
 <header>
   <h1>Калькулятор: аренда vs собственный объект</h1>
-  <p>Учёт периода до ввода в эксплуатацию (аренда + кредит), переключатель NPV ↔ без дисконтирования.</p>
+  <p>Корректное сравнение альтернатив: «аренда весь горизонт» vs «свой объект» с двойной оплатой до ввода и NPV-переключателем.</p>
 </header>
 
 <main>
@@ -98,7 +98,7 @@
       <button class="primary" id="calcBtn">Рассчитать</button>
       <button id="resetBtn">Сбросить</button>
     </div>
-    <p class="note">В период до ввода: вы платите аренду + ежемесячный платёж по кредиту. OPEX по своему объекту включается с месяца ввода.</p>
+    <p class="note">До ввода «свой» платит и аренду, и кредит. После ввода — кредит + OPEX. «Аренда (альтернатива)» — аренда на весь горизонт.</p>
   </section>
 
   <!-- Результаты -->
@@ -106,8 +106,8 @@
     <h2>Итоги и вывод</h2>
     <div class="kpi">
       <div class="item"><div class="label">Equity (год 0)</div><div class="value" id="kpiEquity">—</div></div>
-      <div class="item"><div class="label">Год 1: аренда / свой (сумма за 12 мес)</div><div class="value" id="kpiYear1">—</div></div>
-      <div class="item"><div class="label">NPV аренды</div><div class="value" id="kpiNPVRent">—</div></div>
+      <div class="item"><div class="label">Год 1: аренда / свой (12 мес)</div><div class="value" id="kpiYear1">—</div></div>
+      <div class="item"><div class="label">NPV аренды (альт.)</div><div class="value" id="kpiNPVRent">—</div></div>
       <div class="item"><div class="label">NPV своего</div><div class="value" id="kpiNPVOwn">—</div></div>
       <div class="item"><div class="label">Сумма без диск-та: аренда</div><div class="value" id="kpiSUMRent">—</div></div>
       <div class="item"><div class="label">Сумма без диск-та: свой</div><div class="value" id="kpiSUMOwn">—</div></div>
@@ -116,22 +116,23 @@
     </div>
 
     <details>
-      <summary>Показать таблицы (аренда, денежные потоки)</summary>
-      <h3 style="margin-top:14px">Аренда по годам (учтён период до ввода)</h3>
+      <summary>Показать таблицы (по годам)</summary>
+      <h3 style="margin-top:14px">Аренда (альтернативный сценарий) по годам</h3>
       <div style="overflow:auto">
         <table id="rentTable">
-          <thead><tr><th>Год</th><th>₽/м²/мес (уровень года)</th><th>Сумма аренды за год</th></tr></thead>
+          <thead><tr><th>Год</th><th>₽/м²/мес (уровень года)</th><th>Сумма аренды за год (альт.)</th></tr></thead>
           <tbody></tbody>
           <tfoot><tr><th colspan="2" style="text-align:right">Итого за горизонт</th><th id="rentTotal">—</th></tr></tfoot>
         </table>
       </div>
-      <h3 style="margin-top:14px">Денежные потоки (годовые, сумма по месяцам)</h3>
+      <h3 style="margin-top:14px">Денежные потоки (альт. аренда vs свой)</h3>
       <div style="overflow:auto">
         <table id="cfTable">
-          <thead><tr><th>Год</th><th>CF Аренда (−)</th><th>CF Свой (−/+)</th></tr></thead>
+          <thead><tr><th>Год</th><th>CF Аренда (альт., −)</th><th>CF Свой (−/+)</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
+      <p class="note">В «Свой» по годам уже включена аренда до ввода и терминал в последний год.</p>
     </details>
   </section>
 
@@ -139,9 +140,9 @@
   <section class="card" style="grid-column:1/-1">
     <h2>Как пользоваться</h2>
     <ol>
-      <li>Задайте <b>срок до ввода (мес)</b>. До ввода: аренда + платеж по кредиту. После ввода: аренда = 0; свой = кредит + OPEX.</li>
+      <li>Задайте <b>срок до ввода (мес)</b>. До ввода: аренда + кредит. После — кредит + OPEX.</li>
       <li>Переключатель <b>NPV</b> меняет режим сравнения: <i>дисконтированные</i> суммы vs <i>простые</i> суммы.</li>
-      <li>«Год 1» — сумма потоков за первые 12 месяцев (с учётом пересечения аренды и кредита).</li>
+      <li>«Год 1» — сумма потоков за первые 12 мес с учётом двойной оплаты.</li>
     </ol>
   </section>
 </main>
@@ -168,15 +169,17 @@
     return s;
   }
 
-  // ========= ОСНОВНОЙ РАСЧЁТ (ПО МЕСЯЦАМ) =========
+  // ========= ОСНОВНОЙ РАСЧЁТ ПО МЕСЯЦАМ (альт. аренда vs свой) =========
   function calculate() {
     // Inputs
     const area = +document.getElementById('area').value;
     const horizonYears = clamp(+document.getElementById('horizon').value, 1, 30);
     const discRate = +document.getElementById('discRate').value / 100;
+
     const rentRate0 = +document.getElementById('rentRate').value;
     const rentGrowth = +document.getElementById('rentGrowth').value / 100;
     const rentInfl = +document.getElementById('rentInfl').value / 100;
+
     const constructMonths = clamp(+document.getElementById('constructMonths').value, 1, horizonYears*12);
     const opexYear = +document.getElementById('opex').value;
     const terminalValue = +document.getElementById('terminalValue').value;
@@ -198,7 +201,6 @@
 
     const useNPV = document.getElementById('useNPV').checked;
 
-    // Проверка
     if (area <= 0) { alert('Площадь должна быть > 0'); return; }
 
     // CAPEX / Equity / Debt
@@ -219,53 +221,46 @@
     // Горизонт — месяцы
     const H = horizonYears * 12;
 
-    // Массивы помесячных потоков (t=0 включим отдельно)
-    const cfRentM = [0];   // t=0
-    const cfOwnM  = [-equity];
+    // Сценарий А: аренда (альтернатива) — аренда весь горизонт
+    const cfRentAlt = [0];
+    const rentAltByYear = Array(horizonYears).fill(0);
 
-    // Вспомогательные суммы для табличек
-    const rentByYear = Array(horizonYears).fill(0);
-    const ownByYear  = Array(horizonYears).fill(0);
+    // Сценарий B: свой — до ввода аренда+кредит, после ввода кредит+OPEX, терминал в конце
+    const cfOwn = [-equity];
+    const ownByYear = Array(horizonYears).fill(0);
 
     for (let m = 1; m <= H; m++) {
-      const yearIndex = Math.floor((m - 1) / 12); // 0..H/12-1
-      const rateM2 = rentRate0 * Math.pow(1 + rentGrowth, yearIndex) * (1 + rentInfl); // ₽/м²/мес для года
+      const y = Math.floor((m - 1) / 12); // 0..H/12-1
+      const rateM2 = rentRate0 * Math.pow(1 + rentGrowth, y) * (1 + rentInfl);
       const rentMonthly = rateM2 * area;
 
-      // аренда платится до ввода (включительно ли месяц ввода? — считаем, что аренду платим за все месяцы ДО месяца ввода включительно)
-      const payRent = (m <= constructMonths) ? rentMonthly : 0;
+      // Аренда (альт.) — всегда платит аренду
+      cfRentAlt.push(-rentMonthly);
+      rentAltByYear[y] += rentMonthly;
 
-      // кредит — платёж весь период nMonths (если он длиннее горизонта, считаем только до H)
+      // Свой: до ввода — аренда + кредит; после — кредит + OPEX
+      const payRentOverlap = (m <= constructMonths) ? rentMonthly : 0;
       const payLoan = (m <= nMonths) ? pmtMonth : 0;
-
-      // OPEX — только после ввода (начиная со следующего месяца после ввода)
       const opexM = (m > constructMonths) ? (opexYear / 12) : 0;
 
-      const ownMonthly = payLoan + opexM;
+      const ownMonthly = payRentOverlap + payLoan + opexM;
+      cfOwn.push(-ownMonthly);
+      ownByYear[y] += ownMonthly;
 
-      cfRentM.push(-payRent);
-      cfOwnM.push(-ownMonthly);
-
-      // агрегируем по году
-      const yi = Math.floor((m - 1) / 12); // 0-based
-      rentByYear[yi] += payRent;
-      ownByYear[yi]  += ownMonthly;
-
-      // терминальная стоимость в последний месяц горизонта
-      if (m === H) cfOwnM[m] += terminalValue;
+      // Терминальная стоимость в последнем месяце горизонта
+      if (m === H) cfOwn[m] += terminalValue;
     }
 
     // Итоги
-    const sumRent = cfRentM.reduce((a,b)=>a+b, 0);   // уже с t=0 = 0
-    const sumOwn  = cfOwnM.reduce((a,b)=>a+b, 0);    // с учетом -equity и +terminal в конце
+    const sumRent = cfRentAlt.reduce((a,b)=>a+b, 0);
+    const sumOwn  = cfOwn.reduce((a,b)=>a+b, 0);
+    const npvRent = npvMonthly(discRate, cfRentAlt);
+    const npvOwn  = npvMonthly(discRate, cfOwn);
 
-    const npvRent = npvMonthly(discRate, cfRentM);
-    const npvOwn  = npvMonthly(discRate, cfOwnM);
-
-    // KPI
-    const year1Rent = rentByYear[0];
+    const year1Rent = rentAltByYear[0];
     const year1Own  = ownByYear[0];
 
+    // KPI
     document.getElementById('kpiEquity').textContent   = fmt(equity);
     document.getElementById('kpiYear1').textContent    = fmt(year1Rent) + " / " + fmt(year1Own);
     document.getElementById('kpiNPVRent').textContent  = fmt(Math.round(npvRent));
@@ -287,7 +282,7 @@
         : (delta >= 0 ? "СВОЙ выгоднее по сумме" : "АРЕНДА выгоднее по сумме")
       );
 
-    // Таблица аренды: уровень ставки года и фактическая сумма аренды в году
+    // Таблица «Аренда (альтернатива)»
     const rentTB = document.querySelector('#rentTable tbody');
     rentTB.innerHTML = "";
     let rentTotal = 0;
@@ -295,9 +290,9 @@
       const yIdx = y - 1;
       const rateYearM = rentRate0 * Math.pow(1 + rentGrowth, yIdx) * (1 + rentInfl);
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${y}</td><td>${fmt0(rateYearM)}</td><td>${fmt0(rentByYear[yIdx])}</td>`;
+      tr.innerHTML = `<td>${y}</td><td>${fmt0(rateYearM)}</td><td>${fmt0(rentAltByYear[yIdx])}</td>`;
       rentTB.appendChild(tr);
-      rentTotal += rentByYear[yIdx];
+      rentTotal += rentAltByYear[yIdx];
     }
     document.getElementById('rentTotal').textContent = fmt(Math.round(rentTotal));
 
@@ -305,8 +300,10 @@
     const cfTB = document.querySelector('#cfTable tbody');
     cfTB.innerHTML = "";
     for (let y = 1; y <= horizonYears; y++) {
+      const r = rentAltByYear[y-1];
+      const o = ownByYear[y-1] + (y===horizonYears ? 0 /* терминал уже учтен в cfOwn */ : 0);
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${y}</td><td>${fmt0(-rentByYear[y-1])}</td><td>${fmt0(-ownByYear[y-1] + (y===horizonYears?terminalValue:0))}</td>`;
+      tr.innerHTML = `<td>${y}</td><td>${fmt0(-r)}</td><td>${fmt0(-o + (y===horizonYears?0:0))}</td>`;
       cfTB.appendChild(tr);
     }
   }
