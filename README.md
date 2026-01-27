@@ -1,5 +1,7 @@
 # Company Workspace System
 
+Company: шиномонтаж БАШМАК
+
 This repo is a structured, searchable company knowledge base. It is designed
 to keep work organized by domain, standardize documentation, and make it easy
 for humans and agents to collaborate.

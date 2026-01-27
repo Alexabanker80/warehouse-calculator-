@@ -1,5 +1,7 @@
 # Company Knowledge Base
 
+Company: шиномонтаж БАШМАК
+
 This folder is the single source of truth for company work. It is structured
 by domain, with shared templates and conventions so content stays consistent
 and easy to read everywhere.
