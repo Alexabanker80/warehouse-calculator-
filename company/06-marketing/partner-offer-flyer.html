@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Партнерская программа БАШМАК</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 14mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #111111;
+        background: #ffffff;
+      }
+
+      .sheet {
+        width: 210mm;
+        min-height: 297mm;
+        padding: 14mm;
+        border: 2px solid #111111;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 3px solid #111111;
+        padding-bottom: 8mm;
+        margin-bottom: 8mm;
+      }
+
+      .brand {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+
+      .badge {
+        background: #111111;
+        color: #ffffff;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-weight: 700;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 12mm;
+        margin-bottom: 10mm;
+      }
+
+      .hero h1 {
+        font-size: 26px;
+        margin: 0 0 6mm 0;
+      }
+
+      .hero p {
+        font-size: 14px;
+        line-height: 1.4;
+        margin: 0 0 4mm 0;
+      }
+
+      .reward {
+        background: #f5f5f5;
+        border: 2px solid #111111;
+        padding: 10mm;
+        text-align: center;
+      }
+
+      .reward .amount {
+        font-size: 48px;
+        font-weight: 800;
+        margin: 0;
+      }
+
+      .reward .label {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 4mm;
+      }
+
+      .section {
+        margin-bottom: 8mm;
+      }
+
+      .section h2 {
+        font-size: 18px;
+        margin: 0 0 4mm 0;
+      }
+
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6mm;
+      }
+
+      .step {
+        border: 1px solid #cccccc;
+        padding: 5mm;
+        min-height: 34mm;
+      }
+
+      .step .num {
+        font-weight: 700;
+        margin-bottom: 2mm;
+      }
+
+      .offer {
+        background: #fff7e6;
+        border-left: 6px solid #ff9900;
+        padding: 6mm;
+        font-size: 14px;
+      }
+
+      .details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6mm;
+      }
+
+      .details ul {
+        margin: 0;
+        padding-left: 18px;
+        line-height: 1.5;
+        font-size: 14px;
+      }
+
+      .code {
+        font-size: 18px;
+        font-weight: 700;
+        padding: 4mm;
+        border: 2px dashed #111111;
+        text-align: center;
+      }
+
+      .footer {
+        border-top: 2px solid #111111;
+        padding-top: 6mm;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6mm;
+        font-size: 13px;
+      }
+
+      .muted {
+        color: #555555;
+      }
+
+      .placeholder {
+        color: #999999;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <div class="header">
+        <div class="brand">БАШМАК</div>
+        <div class="badge">ПАРТНЕРСКАЯ ПРОГРАММА</div>
+      </div>
+
+      <div class="hero">
+        <div>
+          <h1>500 ₽ за каждого нового клиента</h1>
+          <p>
+            Мы сеть шиномонтажей «БАШМАК». Предлагаем партнерство с оплатой
+            за реального нового клиента. Клиент приходит от вас, говорит ваш
+            код, мы фиксируем чек и выплачиваем вознаграждение.
+          </p>
+          <p class="muted">
+            Новый клиент = тот, кто никогда не был у нас (проверяем в системе).
+          </p>
+        </div>
+        <div class="reward">
+          <div class="amount">500 ₽</div>
+          <div class="label">за нового клиента</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Как это работает</h2>
+        <div class="steps">
+          <div class="step">
+            <div class="num">1</div>
+            Выдаете клиенту наш оффер и код партнера.
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            Клиент приезжает, говорит код, мы фиксируем чек.
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            Раз в месяц выплачиваем вам 500 ₽ за каждого нового клиента.
+          </div>
+        </div>
+      </div>
+
+      <div class="section offer">
+        <strong>Оффер для клиента:</strong>
+        «Бонус/скидка при обращении в шиномонтаж “БАШМАК”. Скажите код партнера».
+      </div>
+
+      <div class="section details">
+        <div>
+          <h2>Что получает партнер</h2>
+          <ul>
+            <li>500 ₽ за каждого нового клиента.</li>
+            <li>Регулярные выплаты раз в месяц.</li>
+            <li>Прозрачный учет по коду партнера.</li>
+          </ul>
+        </div>
+        <div>
+          <h2>Код партнера</h2>
+          <div class="code">ВАШ КОД: <span class="placeholder">____________</span></div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div>
+          <strong>Контакт для связи</strong><br />
+          <span class="placeholder">Телефон:</span> +7 (___) ___-__-__<br />
+          <span class="placeholder">WhatsApp:</span> +7 (___) ___-__-__<br />
+          <span class="placeholder">Email:</span> info@bashmak24.ru
+        </div>
+        <div>
+          <strong>Быстрый доступ</strong><br />
+          <span class="placeholder">QR-код на сайт/WhatsApp</span><br />
+          <span class="muted">Разместите QR-код рядом с кассой</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
