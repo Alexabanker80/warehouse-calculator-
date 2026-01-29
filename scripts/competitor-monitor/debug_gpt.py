@@ -9,17 +9,22 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 DATA_DIR = "company/06-marketing/monitoring-data/screenshots"
 
-def analyze_any_prices(image_path):
-    print(f"Анализируем скриншот: {os.path.basename(image_path)}")
+def analyze_prices_for_all(image_path, competitor_name):
+    print(f"\n🔍 Анализ: {competitor_name}")
     
     with open(image_path, "rb") as image_file:
         base64_image = base64.b64encode(image_file.read()).decode('utf-8')
     
     prompt = """
-    Посмотри на этот скриншот (это вкладка 'Товары и услуги' или прайс-лист шиномонтажа).
-    Перечисли списком ВСЕ услуги и цены, которые ты видишь.
-    Пиши в формате: "Услуга - Цена".
-    Если цен нет, так и напиши: "Цен не обнаружено".
+    Ты смотришь на экран телефона с открытой страницей Шиномонтажа (вкладка Цены/Товары).
+    
+    Твоя задача: Найти и выписать цены на услуги.
+    Формат ответа:
+    1. Услуга: Цена
+    2. Услуга: Цена
+    
+    Если видишь много цен, выбери 5-7 самых важных (Переобувка R16, R18, Хранение, Ремонт).
+    Если цен НЕТ (только отзывы или фото), напиши: "Цены не найдены".
     """
 
     try:
@@ -34,27 +39,29 @@ def analyze_any_prices(image_path):
                     ],
                 }
             ],
-            max_tokens=500,
+            max_tokens=400,
         )
-        print("\n--- Ответ GPT ---")
-        print(response.choices[0].message.content)
-        print("-----------------")
+        print(f"📄 Отчет по ценам:\n{response.choices[0].message.content}")
     except Exception as e:
         print(f"Ошибка: {e}")
 
 def main():
-    # Ищем скриншоты за последнюю дату
     if not os.path.exists(DATA_DIR): return
     dates = sorted([d for d in os.listdir(DATA_DIR) if os.path.isdir(os.path.join(DATA_DIR, d))])
     latest_date = dates[-1]
     
-    # Берем конкретного конкурента №1 (Mobile)
-    target = glob.glob(f"{DATA_DIR}/{latest_date}/1._*_mobile.png")
+    # Ищем все мобильные скриншоты (где мы искали цены)
+    screenshots = glob.glob(f"{DATA_DIR}/{latest_date}/*_mobile_*.png")
     
-    if target:
-        analyze_any_prices(target[0])
-    else:
-        print("Скриншот не найден.")
+    if not screenshots:
+        print("Скриншоты не найдены. Сначала запустите scraper.py")
+        return
+
+    print(f"Найдено {len(screenshots)} скриншотов. Начинаем анализ...")
+    
+    for shot in sorted(screenshots):
+        name = os.path.basename(shot).replace('_mobile_prices.png', '').replace('_mobile_site.png', '')
+        analyze_prices_for_all(shot, name)
 
 if __name__ == "__main__":
     main()

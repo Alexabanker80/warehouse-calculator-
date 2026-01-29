@@ -34,39 +34,58 @@ async def scrape_url(context, link_data, date_str):
     name = link_data['name'].replace(' ', '_').replace('/', '-')
     source_type = link_data['type']
     
-    print(f"Обработка (Mobile): {name} ({source_type})")
+    # Нам нужны только Яндекс.Карты для отзывов
+    if source_type != "yandex":
+        await page.close()
+        return False
+    
+    print(f"Поиск отзывов: {name}")
     
     try:
         await page.goto(url, timeout=60000, wait_until="domcontentloaded")
-        # Случайная пауза как человек
-        await page.wait_for_timeout(random.randint(2000, 5000))
+        await page.wait_for_timeout(random.randint(2000, 4000))
         
-        if source_type == "yandex":
-            # На мобильном Яндексе все идет лентой
-            # Скроллим вниз медленно
-            for _ in range(5):
-                await page.mouse.wheel(0, 500)
-                await page.wait_for_timeout(random.randint(500, 1500))
-            
-            # Делаем длинный скриншот
-            path = f"{SCREENSHOT_DIR}/{date_str}/{name}_mobile.png"
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            await page.screenshot(path=path, full_page=True)
-            
+        # Логика для мобильных Яндекс.Карт
+        # Ищем вкладку "Отзывы"
+        clicked = False
+        try:
+            # Пробуем разные селекторы
+            # 1. Точное совпадение
+            await page.get_by_text("Отзывы", exact=True).first.click(timeout=3000)
+            clicked = True
+        except:
+            try:
+                # 2. Поиск по части слова (иногда там "254 Отзыва")
+                await page.locator("div", has_text=re.compile(r"Отзыв")).last.click(timeout=3000)
+                clicked = True
+            except:
+                pass
+        
+        if clicked:
+            print("  -> Вкладка 'Отзывы' нажата")
+            await page.wait_for_timeout(2000)
         else:
-            path = f"{SCREENSHOT_DIR}/{date_str}/{name}_mobile.png"
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            await page.screenshot(path=path, full_page=True)
+            print("  -> Вкладка не нажата, скроллим главную...")
 
+        # Скроллим вниз, чтобы прочитать побольше отзывов
+        for _ in range(5):
+            await page.mouse.wheel(0, 800)
+            await page.wait_for_timeout(1000)
+        
+        # Делаем скриншот отзывов
+        path = f"{SCREENSHOT_DIR}/{date_str}/{name}_reviews.png"
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        await page.screenshot(path=path, full_page=True)
+        
         return True
     except Exception as e:
-        print(f"  - Ошибка {name}: {str(e)}")
+        print(f"  - Ошибка: {str(e)}")
         return False
     finally:
         await page.close()
 
 async def main():
-    print("=== Запуск Mobile-Stealth мониторинга ===")
+    print("=== Запуск Охотника за Отзывами ===")
     date_str = datetime.now().strftime("%Y-%m-%d")
     links = await read_competitors_list()
     if not links: return
