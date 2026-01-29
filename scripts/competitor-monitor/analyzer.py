@@ -6,8 +6,8 @@ from datetime import datetime
 DATA_DIR = "company/06-marketing/monitoring-data"
 OUTPUT_REPORT_DIR = "company/06-marketing/reports"
 
-def generate_report():
-    print("=== Генерация визуального отчета ===")
+def generate_price_report():
+    print("=== Генерация Ценового Отчета ===")
     
     processed_dir = f"{DATA_DIR}/processed"
     if not os.path.exists(processed_dir): return
@@ -16,54 +16,61 @@ def generate_report():
     latest_date = dates[-1]
     data_file = f"{processed_dir}/{latest_date}/data.json"
     
-    # Загружаем данные (если есть)
-    data = {}
-    if os.path.exists(data_file):
-        with open(data_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            
-    # Получаем список конкурентов из файла (так надежнее, если в JSON не попали все)
-    # Но для простоты пока работаем с JSON. Если JSON пуст (скрипт парсинга не запускали), возьмем список папок скриншотов
-    
-    # 2. Формируем Markdown
+    with open(data_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        
     lines = []
-    lines.append(f"# 🕵️ Глубокий отчет: {latest_date}")
-    lines.append(f"> Теперь со скриншотами цен и отзывов!")
+    lines.append(f"# 💰 Мониторинг цен конкурентов: {latest_date}")
+    lines.append("> Цены извлечены автоматически (OCR) со скриншотов. Возможны неточности.")
     lines.append("")
     
-    lines.append("## 📸 Детальные карточки")
+    # ТАБЛИЦА ЦЕН
+    lines.append("## Сравнение ключевых позиций")
+    lines.append("| Конкурент | R16 (Комплекс) | R18 (Комплекс) | Хранение (Сезон) |")
+    lines.append("| :--- | :---: | :---: | :---: |")
     
-    # Список конкурентов берем из data.json
     for name, info in data.items():
         clean_name = name.replace('_', ' ')
-        lines.append(f"### 📍 {clean_name}")
         
-        # Ссылки на доказательства (проверяем существование файлов)
-        shot_dir = f"{DATA_DIR}/screenshots/{latest_date}"
+        # Пытаемся найти цены (приоритет GPT, потом OCR)
+        prices = info.get("gpt_prices") or info.get("ocr_prices", {})
         
-        # Формируем ссылки
-        lines.append("**Доказательства:**")
+        p_r16 = prices.get("R16")
+        p_r18 = prices.get("R18")
+        p_storage = prices.get("Storage")
         
-        # Проверяем наличие файлов
-        long_shot = f"{name}_long.png"
-        full_shot = f"{name}_full.png"
+        # Форматирование (None -> —)
+        def fmt(val):
+            if val is None or val == "null" or val == "": return "—"
+            return f"**{val}**"
+            
+        p_r16 = fmt(p_r16)
+        p_r18 = fmt(p_r18)
+        p_storage = fmt(p_storage)
         
-        lines.append(f"- 📸 [Полный скриншот (Длинный)]({shot_dir}/{long_shot}) (или {full_shot})")
+        lines.append(f"| {clean_name} | {p_r16} | {p_r18} | {p_storage} |")
         
-        lines.append("")
-        
-        # Текстовые данные
-        if "website" in info:
-            tables = len(info["website"].get("tables", []))
-            if tables > 0:
-                lines.append(f"> Найдены таблицы цен на сайте: {tables} шт.")
+    lines.append("")
+    lines.append("---")
+    
+    # ДЕТАЛИЗАЦИЯ
+    lines.append("## Источники данных")
+    shot_dir = f"../monitoring-data/screenshots/{latest_date}"
+    
+    for name, info in data.items():
+        ocr = info.get("ocr_prices", {})
+        if ocr:
+            lines.append(f"### {name.replace('_', ' ')}")
+            lines.append(f"Робот распознал: {ocr}")
+            lines.append(f"🔗 [Проверить на скриншоте]({shot_dir}/{name}_long.png)")
+            lines.append("")
 
     # Сохранение
-    output_file = f"{OUTPUT_REPORT_DIR}/deep_report_{latest_date}.md"
+    output_file = f"{OUTPUT_REPORT_DIR}/price_report_{latest_date}.md"
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write("\n".join(lines))
         
-    print(f"Отчет готов: {output_file}")
+    print(f"Ценовой отчет готов: {output_file}")
 
 if __name__ == "__main__":
-    generate_report()
+    generate_price_report()

@@ -1,141 +1,155 @@
 import os
 import json
 import glob
+import re
 from bs4 import BeautifulSoup
-from datetime import datetime
+try:
+    import pytesseract
+    from PIL import Image, ImageEnhance, ImageFilter
+except ImportError:
+    pytesseract = None
 
 # Конфигурация
 DATA_DIR = "company/06-marketing/monitoring-data"
 
-def parse_yandex_maps(html_content):
-    """Извлекает данные из карточки Яндекс.Карт."""
-    soup = BeautifulSoup(html_content, 'html.parser')
-    data = {
-        "rating": None,
-        "reviews_count": None,
-        "last_reviews": [],
-        "prices": []
-    }
+def preprocess_image(img):
+    """Подготовка изображения для лучшего OCR."""
+    # 1. В оттенки серого
+    img = img.convert('L')
     
-    # 1. Рейтинг и количество отзывов
-    # Классы Яндекса часто меняются (обфусцированы), поэтому ищем по смыслу или aria-label
-    # Это эвристический поиск
+    # 2. Увеличиваем контрастность
+    enhancer = ImageEnhance.Contrast(img)
+    img = enhancer.enhance(2.0)
     
-    # Поиск рейтинга (обычно это число 4.x в крупном блоке)
-    # Попробуем найти блок с рейтингом по тексту
-    rating_elem = soup.find('span', class_=lambda x: x and 'business-rating-badge-view__rating-text' in x)
-    if rating_elem:
-        data["rating"] = rating_elem.get_text(strip=True)
-        
-    reviews_count_elem = soup.find('div', class_=lambda x: x and 'business-header-rating-view__text' in x)
-    if reviews_count_elem:
-        data["reviews_count"] = reviews_count_elem.get_text(strip=True)
+    # 3. Бинаризация (черно-белое)
+    # Это помогает убрать серый фон Яндекса
+    thresh = 200
+    fn = lambda x: 255 if x > thresh else 0
+    img = img.point(fn, mode='1')
+    
+    return img
 
-    # 2. Отзывы
-    # Ищем контейнеры отзывов
-    reviews = soup.find_all('div', class_=lambda x: x and 'business-review-view__info' in x)
-    for review in reviews[:5]: # Берем первые 5
-        text_elem = review.find('span', class_=lambda x: x and 'business-review-view__body-text' in x)
-        date_elem = review.find('span', class_=lambda x: x and 'business-review-view__date' in x)
-        stars_elem = review.find('div', class_=lambda x: x and 'business-rating-badge-view__stars' in x) # Сложно вытащить кол-во звезд из CSS, но попробуем
-        
-        if text_elem:
-            data["last_reviews"].append({
-                "text": text_elem.get_text(strip=True),
-                "date": date_elem.get_text(strip=True) if date_elem else "Неизвестно"
-            })
-            
-    # 3. Цены (раздел Товары и услуги)
-    # Это сложнее, так как они в другой вкладке, но иногда они есть в сниппете
-    # Пока пропустим глубокий парсинг цен с Яндекса, так как мы не кликали на вкладку "Цены"
+def extract_prices_from_image(image_path):
+    """Умный поиск цен с предобработкой."""
+    if not pytesseract: return {}
     
-    return data
+    try:
+        original_img = Image.open(image_path)
+        
+        # Делаем предобработку
+        processed_img = preprocess_image(original_img)
+        
+        # Распознаем текст с настройкой --psm 6 (предполагаем блок текста)
+        # rus+eng - чтобы читать и "R16" и "Цена"
+        text = pytesseract.image_to_string(processed_img, lang='rus+eng', config='--psm 6')
+        
+        found_prices = {}
+        
+        # Разбиваем на строки и анализируем каждую
+        lines = text.split('\n')
+        for line in lines:
+            line_clean = line.lower().strip()
+            if not line_clean: continue
+            
+            # Ищем цену в строке (число от 1000 до 99000)
+            # Часто цена бывает в конце строки: "Шиномонтаж R16 ... 3000"
+            price_match = re.findall(r'\b(\d{3,5})\b', line)
+            
+            if not price_match: continue
+            
+            # Берем последнее число в строке как наиболее вероятную цену
+            price = price_match[-1]
+            
+            # Логика определения услуги
+            if '16' in line_clean and ('r16' in line_clean or 'радиус' in line_clean or 'комплекс' in line_clean):
+                # Избегаем записи самого радиуса "16" как цены
+                if price != '16': 
+                    found_prices['R16'] = price
+                    
+            elif '18' in line_clean and ('r18' in line_clean or 'радиус' in line_clean or 'комплекс' in line_clean):
+                 if price != '18':
+                    found_prices['R18'] = price
+                    
+            elif 'хранен' in line_clean or 'сезон' in line_clean:
+                found_prices['Storage'] = price
+
+        return found_prices
+        
+    except Exception as e:
+        print(f"Ошибка OCR {image_path}: {e}")
+        return {}
+
+def parse_yandex_maps(html_content):
+    soup = BeautifulSoup(html_content, 'html.parser')
+    return {}
 
 def parse_website(html_content):
-    """Извлекает основной текст и цены с сайта."""
     soup = BeautifulSoup(html_content, 'html.parser')
-    
-    # Удаляем мусор
-    for script in soup(["script", "style", "nav", "footer"]):
-        script.extract()
-        
-    # Получаем текст
+    for script in soup(["script", "style", "nav", "footer"]): script.extract()
     text = soup.get_text(separator=' ', strip=True)
-    
-    # Пробуем найти таблицы (часто цены там)
     tables = []
     for table in soup.find_all('table'):
         rows = []
         for tr in table.find_all('tr'):
             cols = [td.get_text(strip=True) for td in tr.find_all(['td', 'th'])]
-            if cols:
-                rows.append(cols)
-        if rows:
-            tables.append(rows)
-            
-    return {
-        "text_preview": text[:2000], # Первые 2000 символов для анализа
-        "tables": tables
-    }
+            if cols: rows.append(cols)
+        if rows: tables.append(rows)
+    return {"text_preview": text[:2000], "tables": tables}
 
 def main():
-    print("=== Запуск парсинга данных ===")
+    print("=== Запуск OCR v2 (Улучшенный) ===")
     
-    # Ищем внутри raw_html
-    raw_root = os.path.join(DATA_DIR, "raw_html")
-    if not os.path.exists(raw_root):
-        print(f"Папка {raw_root} не найдена")
-        return
+    processed_dir = f"{DATA_DIR}/processed"
+    raw_root = f"{DATA_DIR}/raw_html"
+    screenshot_root = f"{DATA_DIR}/screenshots"
 
+    if not os.path.exists(raw_root): return
     dates = sorted([d for d in os.listdir(raw_root) if os.path.isdir(os.path.join(raw_root, d))])
-    if not dates:
-        print("Нет данных для обработки")
-        return
-        
+    if not dates: return
     latest_date = dates[-1]
-    print(f"Обрабатываем дату: {latest_date}")
     
-    raw_files = glob.glob(f"{raw_root}/{latest_date}/*.html")
     results = {}
     
-    for file_path in raw_files:
-        filename = os.path.basename(file_path)
-        name = filename.replace('.html', '')
+    # Скриншоты
+    screenshot_files = glob.glob(f"{screenshot_root}/{latest_date}/*.png")
+    print(f"Обрабатываем {len(screenshot_files)} изображений с фильтрами...")
+    
+    for shot_path in screenshot_files:
+        filename = os.path.basename(shot_path)
         
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        # Определяем ключ
+        key = None
+        if "_long" in filename: key = filename.replace('_long.png', '')
+        elif "_3_prices" in filename: key = filename.replace('_3_prices.png', '')
+        
+        if not key: continue
             
-        if "_yandex" in name:
-            parsed = parse_yandex_maps(content)
-            key = name.replace('_yandex', '')
+        prices = extract_prices_from_image(shot_path)
+        if prices:
             if key not in results: results[key] = {}
-            results[key]['yandex'] = parsed
-        else:
-            parsed = parse_website(content)
-            key = name.replace('_website', '')
-            if key not in results: results[key] = {}
-            results[key]['website'] = parsed
-            
-    # Сохраняем результат
-    # Создаем папку если нет
-    output_dir = f"{DATA_DIR}/processed/{latest_date}"
+            if 'ocr_prices' not in results[key]: results[key]['ocr_prices'] = {}
+            results[key]['ocr_prices'].update(prices)
+            print(f"  + {key}: {prices}")
+
+    # Сохраняем (дополняем существующий JSON если есть, или создаем новый)
+    output_dir = f"{processed_dir}/{latest_date}"
     os.makedirs(output_dir, exist_ok=True)
     output_file = f"{output_dir}/data.json"
+    
+    # Читаем старый json чтобы не потерять данные с сайтов
+    if os.path.exists(output_file):
+        with open(output_file, 'r', encoding='utf-8') as f:
+            old_data = json.load(f)
+            # Мержим
+            for k, v in results.items():
+                if k not in old_data: old_data[k] = {}
+                old_data[k].update(v)
+            results = old_data
+    
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
         
-    print(f"Обработка завершена. Результат: {output_file}")
-    
-    # Вывод краткой статистики
-    for name, data in results.items():
-        print(f"\n--- {name} ---")
-        if 'yandex' in data:
-            y = data['yandex']
-            print(f"Yandex: Рейтинг {y.get('rating')}, Отзывов {y.get('reviews_count')}")
-            if y.get('last_reviews'):
-                print(f"  Последний отзыв: {y['last_reviews'][0]['text'][:50]}...")
-        if 'website' in data:
-            print(f"Сайт: Найдено таблиц с ценами: {len(data['website']['tables'])}")
+    print(f"Готово: {output_file}")
 
 if __name__ == "__main__":
     main()
